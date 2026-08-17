@@ -15,10 +15,10 @@ def clean(s):
 
 def strip_letter(opt):
     # options come as "א. text" / "ג . text" – strip the Hebrew letter prefix
-    return clean(re.sub(r'^\s*[אבגד]\s*\.\s*', '', opt))
+    return clean(re.sub(r'^\s*[אבגד]\s*(?:[\.\)]\s*|\s+)', '', opt))
 
 def strip_num(q):
-    return clean(re.sub(r'^\s*\d+\)\s*\.?\s*', '', q))
+    return clean(re.sub(r'^\s*\d+\s*[\.\)]\s*\.?\s*', '', q))
 
 questions = []
 # --- Google Forms quizzes ---
@@ -51,7 +51,7 @@ lessons = load(os.path.join(DATA, 'lessons.json'))
 topics = sorted({q['topic'] for q in questions})
 howto = load(os.path.join(DATA, 'howto.json')) if os.path.exists(os.path.join(DATA, 'howto.json')) else {}
 
-bundle = {'version': 1, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
+bundle = {'version': 2, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
           'counts': {'course1': sum(q['course'] == 1 for q in questions), 'course2': sum(q['course'] == 2 for q in questions),
                      'pdf': sum(q['source'] == 'pdf' for q in questions), 'total': len(questions)}}
 with open(os.path.join(DOCS_DATA, 'bundle.json'), 'w', encoding='utf-8') as f:
