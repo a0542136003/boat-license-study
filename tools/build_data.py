@@ -51,7 +51,7 @@ lessons = load(os.path.join(DATA, 'lessons.json'))
 topics = sorted({q['topic'] for q in questions})
 howto = load(os.path.join(DATA, 'howto.json')) if os.path.exists(os.path.join(DATA, 'howto.json')) else {}
 
-bundle = {'version': 3, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
+bundle = {'version': 4, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
           'counts': {'course1': sum(q['course'] == 1 for q in questions), 'course2': sum(q['course'] == 2 for q in questions),
                      'pdf': sum(q['source'] == 'pdf' for q in questions), 'total': len(questions)}}
 with open(os.path.join(DOCS_DATA, 'bundle.json'), 'w', encoding='utf-8') as f:
@@ -62,11 +62,13 @@ print('bundle:', bundle['counts'], 'topics:', len(topics), 'lessons:', len(lesso
 html = open(os.path.join(DOCS, 'index.html'), encoding='utf-8').read()
 css = open(os.path.join(DOCS, 'style.css'), encoding='utf-8').read()
 js = open(os.path.join(DOCS, 'app.js'), encoding='utf-8').read()
+pics = open(os.path.join(DOCS, 'pics.js'), encoding='utf-8').read()
 imgs = {}
 for p in sorted(glob.glob(os.path.join(DOCS, 'pdf', '*.jpg'))):
     with open(p, 'rb') as f:
         imgs[os.path.basename(p)] = 'data:image/jpeg;base64,' + base64.b64encode(f.read()).decode()
 inline = html.replace('<link rel="stylesheet" href="style.css">', '<style>' + css + '</style>')
+inline = inline.replace('<script src="pics.js"></script>', '<script>' + pics.replace('</script>', '<\/script>') + '</script>')
 inline = inline.replace('<script src="app.js"></script>',
     '<script>window.__BUNDLE__=' + json.dumps(bundle, ensure_ascii=False) + ';window.__IMAGES__=' + json.dumps(imgs) + ';</script>'
     '<script>' + js.replace('</script>', '<\\/script>') + '</script>')

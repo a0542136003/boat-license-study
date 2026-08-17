@@ -84,18 +84,25 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wakeLock) keepAwake(true); });
   const speakQuestion = async q => { TTS.cancel(); await TTS.speak(q.q); for (let i = 0; i < q.options.length; i++) await TTS.speak(`${HEB[i]}. ${q.options[i]}`); };
 
+  // ---------- exam pictures (pics.js) ----------
+  const PICS = window.PICS || null;
+  const picNums = q => { const set = new Set(); const re = /תמונ(?:ה|ות)\s*(\d+)(?:\s*(?:ו|–|-|,)\s*(\d+))?/g; let m; const txt = q.q + ' ' + q.options.join(' '); while ((m = re.exec(txt))) { set.add(+m[1]); if (m[2]) set.add(+m[2]); } return [...set].filter(n => PICS && PICS.byNumber(n)); };
+  const picStrip = (q, withMeaning) => { if (!PICS) return ''; const ns = picNums(q); if (!ns.length) return ''; return `<div class="pics">${ns.map(n => { const p = PICS.byNumber(n); return `<figure class="pic"><div class="picsvg">${p.svg}</div><figcaption>תמונה ${n}${withMeaning ? `<br><b>${esc(p.info.he)}</b>` : ''}</figcaption></figure>`; }).join('')}</div>`; };
+  const fillPics = root => { if (!PICS) return; root.querySelectorAll('[data-pic]').forEach(el => { el.innerHTML = PICS.svg(el.dataset.pic); el.classList.add('picsvg'); }); root.querySelectorAll('[data-picn]').forEach(el => { const p = PICS.byNumber(+el.dataset.picn); if (p) { el.innerHTML = p.svg; el.classList.add('picsvg'); } }); };
+
   // ---------- question card ----------
   function renderQuestion(q, opts = {}) {
     const { index, total, onAnswer, showAnswer } = opts;
     const div = document.createElement('div'); div.className = 'card question';
     div.innerHTML = `<div class="qhead"><span>${index != null ? `שאלה ${index + 1}${total ? ' / ' + total : ''}` : ''}</span><span>${TTS.ok ? '<button class="iconbtn speakbtn" title="הקרא">🔊</button>' : ''}<span class="tag">${esc(q.topic)}</span><span class="tag">${esc(srcLabel(q))}</span></span></div>
-      <div class="qtext">${esc(q.q)}</div>
+      <div class="qtext">${esc(q.q)}</div>${picStrip(q, !!showAnswer)}
       <div class="opts">${q.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="letter">${HEB[i]}.</span> ${esc(o)}</button>`).join('')}</div>
       <div class="feedback"></div>`;
     const buttons = [...div.querySelectorAll('.opt')];
     const reveal = picked => {
       buttons.forEach(b => { b.disabled = true; const i = +b.dataset.i; if (i === q.correct) b.classList.add('correct'); if (picked === i && i !== q.correct) b.classList.add('wrong'); if (picked === i) b.classList.add('picked'); });
       const ok = picked === q.correct;
+      const ps = $('.pics', div); if (ps) ps.outerHTML = picStrip(q, true);
       $('.feedback', div).innerHTML = `<div class="why ${ok ? '' : 'bad'}"><b>${ok ? '✔ נכון!' : '✘ לא נכון.'}</b> התשובה הנכונה: <b>${HEB[q.correct]}. ${esc(q.options[q.correct])}</b>${q.why ? `<br><span class="small">${esc(q.why)}</span>` : ''}</div>`;
     };
     if (showAnswer) reveal(null);
@@ -148,6 +155,7 @@
         <a class="tile" href="#/drive" style="border-right:6px solid var(--accent)"><span class="big">🚗🎧</span><b>מצב נהיגה</b><small>הקראה קולית + מענה בקול, בלי ידיים</small></a>
         <a class="tile" href="#/exam"><span class="big">📝</span><b>סימולציית מבחן</b><small>שאלות אקראיות עם טיימר וציון</small></a>
         <a class="tile" href="#/mistakes"><span class="big">🔁</span><b>חזרה על טעויות</b><small>${weak ? weak + ' שאלות מחכות' : 'אין טעויות פתוחות'}</small></a>
+        <a class="tile" href="#/pics"><span class="big">🚩</span><b>דגלים וסימנים</b><small>דגלי קוד, סימני יום, אורות, אותות קוליים – בתמונות</small></a>
         <a class="tile" href="#/browse"><span class="big">📚</span><b>כל השאלות והתשובות</b><small>עיון וחיפוש במאגר המלא</small></a>
         <a class="tile" href="#/pages"><span class="big">🖼️</span><b>דפי החוברת</b><small>15 עמודים סרוקים עם ההדגשות שלך</small></a>
         <a class="tile" href="#/howto"><span class="big">🧭</span><b>איך נרשמים למבחן</b><small>טופס רפואי, אגרה, זימון</small></a>
@@ -256,7 +264,7 @@
       const term = $('#search', wrap).value.trim(); const src = wrap.querySelector('input[name=src]:checked').value; const topic = $('#topicSel', wrap).value;
       let qs = DB.questions.filter(q => (src === 'all' || q.source === src) && (!topic || q.topic === topic) && (!term || (q.q + ' ' + q.options.join(' ') + ' ' + (q.why || '')).includes(term)));
       $('#cnt', wrap).textContent = `${qs.length} שאלות`;
-      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${esc(q.q)}</div>
+      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${esc(q.q)}</div>${picStrip(q, true)}
         ${q.options.map((o, k) => `<div class="opt ${k === q.correct ? 'correct' : ''}" style="cursor:default"><span class="letter">${HEB[k]}.</span> ${esc(o)}</div>`).join('')}${q.why ? `<div class="why small">${esc(q.why)}</div>` : ''}</div>`).join('') + (qs.length > 200 ? '<div class="card muted center">מוצגות 200 הראשונות – צמצם את החיפוש</div>' : '');
     };
     wrap.addEventListener('input', draw); wrap.addEventListener('change', draw); setTimeout(draw, 0);
@@ -329,7 +337,7 @@
     const draw = (q, phase) => {
       wrap.innerHTML = `<div class="card drivecard">
         <div class="qhead"><span>שאלה ${i + 1} / ${qs.length}</span><span id="dstatus" class="muted">${phase}</span></div>
-        <div class="qtext big">${esc(q.q)}</div>
+        <div class="qtext big">${esc(q.q)}</div>${picStrip(q, false)}
         <div class="driveopts">${q.options.map((o, k) => `<button class="opt driveopt" data-i="${k}"><span class="letter">${HEB[k]}</span><span class="otext">${esc(o)}</span></button>`).join('')}</div>
         <div id="dfeedback"></div>
         <div class="drivectl">
@@ -421,6 +429,18 @@
     return wrap;
   };
 
+  views.pics = () => {
+    setTitle('גלריית דגלים וסימנים');
+    if (!PICS) return '<div class="card">הגלריה לא נטענה</div>';
+    const numOf = key => Object.keys(PICS.NUMBERS).filter(n => PICS.NUMBERS[n] === key).map(n => `תמונה ${n}`).join(', ');
+    const sec = (title, obj, prefix, sub) => `<div class="card"><h2>${title}</h2>${sub ? `<p class="muted small">${sub}</p>` : ''}<div class="gallery">${Object.keys(obj).map(k => `<figure class="pic"><div class="picsvg">${obj[k].svg}</div><figcaption>${prefix === 'flag' ? `<b>${k}</b> · ${esc(obj[k].name)}<br>` : ''}${esc(obj[k].he)}${obj[k].detail ? `<br><span class="muted">${esc(obj[k].detail)}</span>` : ''}${numOf(prefix + ':' + k) ? `<br><span class="tag">${numOf(prefix + ':' + k)}</span>` : ''}</figcaption></figure>`).join('')}</div></div>`;
+    return `<div class="card muted small">כל התמונות מצוירות לפי התקן הבין-לאומי. מספרי "תמונה" הם המספרים שמופיעים בשאלות המבחן.</div>` +
+      sec('🚩 דגלי קוד (ICS)', PICS.FLAGS, 'flag', 'הבולטים למבחן: A צוללנים · B חומרים מסוכנים · O אדם בים · N מעל C מצוקה · U סכנה · P עומד להפליג') +
+      sec('⚫ סימני יום', PICS.SHAPES, 'shape') +
+      sec('💡 אורות ואותות מעגנה', PICS.MISC, 'misc') +
+      sec('📯 אותות קוליים', PICS.SOUNDS, 'sound', '● קצרה (כשנייה) · ▬ ארוכה (4–6 שניות)');
+  };
+
   views.howto = () => {
     setTitle('איך נרשמים למבחן');
     const h = DB.howto || {};
@@ -437,6 +457,7 @@
     const fn = views[v] || views.home;
     const out = fn(...rest);
     app.innerHTML = ''; if (typeof out === 'string') app.innerHTML = out; else app.appendChild(out);
+    fillPics(app);
     window.scrollTo(0, 0);
   }
   app.addEventListener('click', e => { if (e.target.classList && e.target.classList.contains('pageimg')) e.target.classList.toggle('zoom'); });

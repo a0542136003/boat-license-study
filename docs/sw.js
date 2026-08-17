@@ -1,6 +1,6 @@
 /* משיט 12 – offline cache. Bump VERSION when files change. */
-const VERSION = 'ml12-v3';
-const CORE = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './data/bundle.json'];
+const VERSION = 'ml12-v4';
+const CORE = ['./', './index.html', './style.css', './app.js', './pics.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './data/bundle.json'];
 const PAGES = Array.from({length: 15}, (_, i) => `./pdf/p${String(i + 1).padStart(2, '0')}.jpg`);
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.concat(PAGES))).then(() => self.skipWaiting()));
