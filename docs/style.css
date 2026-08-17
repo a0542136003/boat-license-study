@@ -77,3 +77,15 @@ input[type=number],select{font-size:1rem;padding:6px 8px;border-radius:8px;borde
 .list li{padding:10px 0;border-bottom:1px solid var(--line)}
 details summary{cursor:pointer;font-weight:700;color:var(--brand2)}
 .hl{background:#fff2a8;color:#222;padding:0 3px;border-radius:3px}
+
+/* driving mode */
+.drivecard{padding:14px}
+.qtext.big{font-size:1.45rem;line-height:1.4}
+.driveopts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.driveopt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:96px;margin:0;padding:10px;text-align:center}
+.driveopt .letter{font-size:2.2rem;line-height:1;min-width:0}
+.driveopt .otext{font-size:.85rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.drivectl{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.drivectl .btn{margin:0;padding:14px 4px;font-size:1rem}
+.speakbtn{color:var(--brand2);font-size:1.1rem;padding:0 6px}
+@media(min-width:600px){.driveopt{min-height:120px}.driveopt .otext{font-size:1rem}}

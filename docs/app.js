@@ -33,11 +33,62 @@
   const setTitle = t => { $('#title').textContent = t; document.title = t + ' – משיט 12'; };
   const topicColor = t => { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 60% 45%)`; };
 
+  // ---------- speech (TTS + recognition) ----------
+  const TTS = {
+    ok: 'speechSynthesis' in window, voices: [], voice: null,
+    load() { if (!this.ok) return; this.voices = speechSynthesis.getVoices(); const pref = store.get('voiceURI', null); this.voice = this.voices.find(v => v.voiceURI === pref) || this.voices.find(v => /^he/i.test(v.lang)) || this.voices.find(v => /hebrew|עברית/i.test(v.name)) || null; },
+    hebrew() { return this.voices.filter(v => /^he/i.test(v.lang) || /hebrew|עברית/i.test(v.name)); },
+    warm() { if (!this.ok) return; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) { } },
+    speak(text) {
+      return new Promise(res => {
+        if (!this.ok || !text) return res();
+        const u = new SpeechSynthesisUtterance(clean4tts(text)); u.lang = 'he-IL'; if (this.voice) u.voice = this.voice;
+        u.rate = +store.get('rate', 1); u.pitch = 1; let done = false; const fin = () => { if (!done) { done = true; clearInterval(t); res(); } };
+        u.onend = fin; u.onerror = fin; speechSynthesis.speak(u);
+        // Chrome sometimes never fires onend; poll as a safety net
+        const t = setInterval(() => { if (!speechSynthesis.speaking && !speechSynthesis.pending) fin(); }, 400);
+        setTimeout(fin, 60000);
+      });
+    },
+    cancel() { if (this.ok) speechSynthesis.cancel(); }
+  };
+  const clean4tts = s => String(s).replace(/ק["״]ג/g, 'קילוגרם').replace(/ס["״]מ/g, 'סנטימטר').replace(/מ["״]מ/g, 'מילימטר').replace(/ק["״]מ/g, 'קילומטר').replace(/(\d)\s*מ['׳](?![א-ת])/g, '$1 מטר').replace(/ת["״]ז/g, 'תעודת זהות').replace(/ע["״]י/g, 'על ידי').replace(/ראשל["״]צ/g, 'ראשון לציון').replace(/ת["״]א/g, 'תל אביב').replace(/כ["״]ש/g, 'כלי שיט').replace(/רספ["״]ן/g, 'רספן').replace(/אחה["״]צ/g, 'אחר הצהריים').replace(/מס['׳]/g, 'מספר').replace(/אחה["״]צ/g, 'אחר הצהריים').replace(/["'״׳]/g, '').replace(/\(([^)]*)\)/g, ', $1,').replace(/\s*[-–]\s*/g, ', ').replace(/\s+/g, ' ').replace(/\.\s*\./g, '.').replace(/\s+\./g, '.').trim();
+  if (TTS.ok) { TTS.load(); speechSynthesis.onvoiceschanged = () => TTS.load(); }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  function listen(ms) {
+    return new Promise(res => {
+      if (!SR) return res(null);
+      let r; try { r = new SR(); } catch (e) { return res(null); }
+      r.lang = 'he-IL'; r.interimResults = false; r.maxAlternatives = 5; r.continuous = false;
+      let done = false; const fin = v => { if (done) return; done = true; clearTimeout(t); try { r.abort(); } catch (e) { } res(v); };
+      r.onresult = e => { const alts = []; for (const rs of e.results) for (const a of rs) alts.push(a.transcript); fin(alts); };
+      r.onerror = () => fin(null); r.onend = () => fin(null);
+      const t = setTimeout(() => fin(null), ms);
+      try { r.start(); } catch (e) { fin(null); }
+    });
+  }
+  const WORDS = { 'א': 0, 'אלף': 0, 'אחת': 0, 'אחד': 0, '1': 0, 'ראשונה': 0, 'ראשון': 0, 'הראשונה': 0, 'ב': 1, 'בית': 1, 'שתיים': 1, 'שניים': 1, 'שתים': 1, '2': 1, 'שנייה': 1, 'שניה': 1, 'שני': 1, 'השנייה': 1, 'ג': 2, 'גימל': 2, 'שלוש': 2, 'שלושה': 2, '3': 2, 'שלישית': 2, 'שלישי': 2, 'השלישית': 2, 'ד': 3, 'דלת': 3, 'ארבע': 3, 'ארבעה': 3, '4': 3, 'רביעית': 3, 'רביעי': 3, 'הרביעית': 3 };
+  const CMDS = [[/חזור|שוב|תחזור|עוד פעם|לא שמעתי/, 'repeat'], [/הבא|דלג|תדלג|הלאה|נקסט/, 'skip'], [/עצור|תעצור|סיום|סיים|תפסיק|הפסק|סטופ/, 'stop'], [/השהה|הפסקה|פאוזה|רגע/, 'pause']];
+  function parseSpeech(alts) {
+    if (!alts) return null;
+    for (const raw of alts) {
+      const s = raw.replace(/[.,!?״"']/g, ' ').replace(/תשובה|אופציה|מספר|אות|בחר|אני בוחר|אני אומר/g, ' ').trim();
+      for (const [re, c] of CMDS) if (re.test(s)) return { cmd: c };
+      if (s in WORDS) return { pick: WORDS[s] };
+      const words = s.split(/\s+/); for (const w of words) { const ww = w.replace(/^ו/, ''); if (w in WORDS) return { pick: WORDS[w] }; if (ww in WORDS) return { pick: WORDS[ww] }; }
+    }
+    return { unknown: alts[0] };
+  }
+  let wakeLock = null;
+  const keepAwake = async on => { try { if (on && 'wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) { } };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wakeLock) keepAwake(true); });
+  const speakQuestion = async q => { TTS.cancel(); await TTS.speak(q.q); for (let i = 0; i < q.options.length; i++) await TTS.speak(`${HEB[i]}. ${q.options[i]}`); };
+
   // ---------- question card ----------
   function renderQuestion(q, opts = {}) {
     const { index, total, onAnswer, showAnswer } = opts;
     const div = document.createElement('div'); div.className = 'card question';
-    div.innerHTML = `<div class="qhead"><span>${index != null ? `שאלה ${index + 1}${total ? ' / ' + total : ''}` : ''}</span><span><span class="tag">${esc(q.topic)}</span><span class="tag">${esc(srcLabel(q))}</span></span></div>
+    div.innerHTML = `<div class="qhead"><span>${index != null ? `שאלה ${index + 1}${total ? ' / ' + total : ''}` : ''}</span><span>${TTS.ok ? '<button class="iconbtn speakbtn" title="הקרא">🔊</button>' : ''}<span class="tag">${esc(q.topic)}</span><span class="tag">${esc(srcLabel(q))}</span></span></div>
       <div class="qtext">${esc(q.q)}</div>
       <div class="opts">${q.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="letter">${HEB[i]}.</span> ${esc(o)}</button>`).join('')}</div>
       <div class="feedback"></div>`;
@@ -48,6 +99,7 @@
       $('.feedback', div).innerHTML = `<div class="why ${ok ? '' : 'bad'}"><b>${ok ? '✔ נכון!' : '✘ לא נכון.'}</b> התשובה הנכונה: <b>${HEB[q.correct]}. ${esc(q.options[q.correct])}</b>${q.why ? `<br><span class="small">${esc(q.why)}</span>` : ''}</div>`;
     };
     if (showAnswer) reveal(null);
+    const sb = $('.speakbtn', div); if (sb) sb.onclick = () => { TTS.warm(); speakQuestion(q); };
     buttons.forEach(b => b.onclick = () => { const i = +b.dataset.i; if (opts.immediate !== false) reveal(i); else { buttons.forEach(x => x.classList.remove('picked')); b.classList.add('picked'); } onAnswer && onAnswer(i, i === q.correct); });
     return div;
   }
@@ -93,6 +145,7 @@
       <div class="grid">
         <a class="tile" href="#/lessons"><span class="big">📖</span><b>שיעורים</b><small>החומר מהחוברת מסודר לפי נושאים</small></a>
         <a class="tile" href="#/practice"><span class="big">🎯</span><b>תרגול לפי נושא</b><small>משוב מיידי + הסבר לכל שאלה</small></a>
+        <a class="tile" href="#/drive" style="border-right:6px solid var(--accent)"><span class="big">🚗🎧</span><b>מצב נהיגה</b><small>הקראה קולית + מענה בקול, בלי ידיים</small></a>
         <a class="tile" href="#/exam"><span class="big">📝</span><b>סימולציית מבחן</b><small>שאלות אקראיות עם טיימר וציון</small></a>
         <a class="tile" href="#/mistakes"><span class="big">🔁</span><b>חזרה על טעויות</b><small>${weak ? weak + ' שאלות מחכות' : 'אין טעויות פתוחות'}</small></a>
         <a class="tile" href="#/browse"><span class="big">📚</span><b>כל השאלות והתשובות</b><small>עיון וחיפוש במאגר המלא</small></a>
@@ -217,6 +270,156 @@
     return wrap;
   };
   const lessonForPage = p => { const ls = DB.lessons.filter(l => l.pages.includes(p)); return ls.length ? ` – <span class="muted small">${ls.map(l => `<a href="#/lesson/${l.id}">${esc(l.title)}</a>`).join(' · ')}</span>` : ''; };
+
+  // ---------- driving mode (hands-free) ----------
+  views.drive = (state) => {
+    setTitle('מצב נהיגה 🚗');
+    const cfg = Object.assign({ mode: 'quiz', src: 'all', topics: [], n: 20, wait: 8, rate: 1, readOptionsInListen: true, autoNext: 3 }, store.get('drive', {}));
+    if (!TTS.ok) return `<div class="card"><h2>הדפדפן לא תומך בהקראה</h2><p>נסה ב-Chrome (אנדרואיד/מחשב) או Safari (iPhone).</p></div>`;
+    if (state !== 'go') {
+      const hv = TTS.hebrew();
+      const html = `<div class="card"><h2>🚗 מצב נהיגה – הקראה קולית</h2>
+        <p class="muted small">האפליקציה מקריאה כל שאלה ואת התשובות, ואתה עונה <b>בקול</b> ("א", "ב", "ג", "ד" או "אחת/שתיים/שלוש/ארבע") או בלחיצה על כפתור ענק. פקודות קוליות: <b>חזור</b> · <b>הבא</b> · <b>עצור</b>.</p>
+        ${!hv.length ? `<div class="tip">⚠️ לא נמצא קול עברי במכשיר. באנדרואיד: הגדרות ← שפה ← המרת טקסט לדיבור ← Google TTS ← התקן עברית. ב-Windows: הגדרות ← זמן ושפה ← דיבור ← הוסף עברית. ההקראה תנסה בכל זאת.</div>` : ''}
+        ${!SR ? `<div class="tip">ℹ️ זיהוי דיבור לא זמין בדפדפן זה – אפשר לענות בלחיצה על הכפתורים הגדולים, או לבחור "האזנה בלבד".</div>` : ''}
+        <h3>מה להקריא?</h3>
+        <div class="checkrow">
+          <label><input type="radio" name="dmode" value="quiz" ${cfg.mode === 'quiz' ? 'checked' : ''}> 🎤 חידון – שאלה, אני עונה, משוב</label>
+          <label><input type="radio" name="dmode" value="listen" ${cfg.mode === 'listen' ? 'checked' : ''}> 🎧 האזנה בלבד – שאלה ← תשובה נכונה ← הסבר (כמו פודקאסט)</label>
+        </div>
+        <div class="row"><label>מקור <select id="dsrc"><option value="all" ${cfg.src === 'all' ? 'selected' : ''}>הכול</option><option value="course" ${cfg.src === 'course' ? 'selected' : ''}>מבחני הקורס</option><option value="pdf" ${cfg.src === 'pdf' ? 'selected' : ''}>שאלות החוברת</option><option value="weak" ${cfg.src === 'weak' ? 'selected' : ''}>הטעויות שלי</option></select></label>
+        <label>שאלות <input type="number" id="dn" min="5" max="200" value="${cfg.n}"></label>
+        <label>זמן למענה (שנ') <input type="number" id="dwait" min="3" max="30" value="${cfg.wait}"></label>
+        <label>השהיה לפני הבאה (שנ') <input type="number" id="dnext" min="0" max="15" value="${cfg.autoNext}"></label></div>
+        <h3>נושאים <span class="muted small">(ריק = הכול)</span></h3>
+        <div class="checkrow">${DB.topics.map(t => `<label><input type="checkbox" class="dtopic" value="${esc(t)}" ${cfg.topics.includes(t) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
+        <h3>קול</h3>
+        <div class="row"><label>מהירות <input type="range" id="drate" min="0.6" max="1.5" step="0.1" value="${store.get('rate', 1)}"> <span id="drateV">${store.get('rate', 1)}</span></label>
+        <label>קול <select id="dvoice"><option value="">אוטומטי</option>${TTS.voices.map(v => `<option value="${esc(v.voiceURI)}" ${store.get('voiceURI') === v.voiceURI ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></label>
+        <button class="btn secondary small" id="dtest">🔊 בדיקת קול</button></div>
+        <label class="small"><input type="checkbox" id="dro" ${cfg.readOptionsInListen ? 'checked' : ''}> במצב האזנה – להקריא גם את כל האפשרויות</label>
+        <div class="center" style="margin-top:14px"><button class="btn" id="dstart" style="font-size:1.4rem;padding:16px 34px">▶️ התחל</button></div>
+        <p class="muted small">טיפ: המסך יישאר דלוק בזמן ההקראה. שים את הטלפון במעמד – ואל תיגע בו בנסיעה 🙂</p></div>`;
+      setTimeout(() => {
+        const save = () => { store.set('drive', { mode: document.querySelector('input[name=dmode]:checked').value, src: $('#dsrc').value, n: +$('#dn').value || 20, wait: +$('#dwait').value || 8, autoNext: +$('#dnext').value, topics: [...document.querySelectorAll('.dtopic:checked')].map(x => x.value), readOptionsInListen: $('#dro').checked }); store.set('rate', +$('#drate').value); store.set('voiceURI', $('#dvoice').value || null); TTS.load(); };
+        $('#drate').oninput = e => { $('#drateV').textContent = e.target.value; };
+        $('#dtest').onclick = () => { save(); TTS.warm(); TTS.cancel(); TTS.speak('שלום! זהו קול הבדיקה. כלי שיט ממוכן מפנה דרך למפרשית.'); };
+        $('#dstart').onclick = () => { save(); TTS.warm(); location.hash = '#/drive/go'; };
+      }, 0);
+      return html;
+    }
+    // ----- running -----
+    let pool = DB.questions.slice(); const s = stats();
+    if (cfg.src === 'course') pool = pool.filter(q => q.source !== 'pdf'); if (cfg.src === 'pdf') pool = pool.filter(q => q.source === 'pdf'); if (cfg.src === 'weak') pool = pool.filter(q => isWeak(s[q.id]));
+    if (cfg.topics.length) pool = pool.filter(q => cfg.topics.includes(q.topic));
+    if (!pool.length) pool = DB.questions.slice();
+    const qs = shuffle(pool).slice(0, cfg.n);
+    const wrap = document.createElement('div'); wrap.className = 'drive';
+    let i = 0, right = 0, alive = true, paused = false, pendingPick = null, stepToken = 0, srBroken = false; const wrongList = [];
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const status = t => { const el = $('#dstatus', wrap); if (el) el.textContent = t; };
+    const waitIfPaused = async () => { while (paused && alive) await sleep(200); };
+    keepAwake(true);
+    window.__driveDebug = () => ({ alive, paused, i, pendingPick, stepToken });
+    const stop = () => { alive = false; TTS.cancel(); keepAwake(false); };
+    const finishScreen = () => {
+      wrap.innerHTML = `<div class="card center"><h2>סיימת 🎉</h2><div class="stat"><div><b>${right}</b>נכונות</div><div><b>${wrongList.length}</b>שגויות</div></div><a class="btn" href="#/drive">חזרה להגדרות</a> <a class="btn secondary" href="#/mistakes">🔁 טעויות</a></div>`;
+      wrongList.forEach(q => wrap.appendChild(renderQuestion(q, { showAnswer: true })));
+    };
+    const draw = (q, phase) => {
+      wrap.innerHTML = `<div class="card drivecard">
+        <div class="qhead"><span>שאלה ${i + 1} / ${qs.length}</span><span id="dstatus" class="muted">${phase}</span></div>
+        <div class="qtext big">${esc(q.q)}</div>
+        <div class="driveopts">${q.options.map((o, k) => `<button class="opt driveopt" data-i="${k}"><span class="letter">${HEB[k]}</span><span class="otext">${esc(o)}</span></button>`).join('')}</div>
+        <div id="dfeedback"></div>
+        <div class="drivectl">
+          <button class="btn secondary" id="drepeat">🔁 חזור</button>
+          <button class="btn secondary" id="dpause">${paused ? '▶️ המשך' : '⏸ השהה'}</button>
+          <button class="btn secondary" id="dskip">⏭ הבא</button>
+          <button class="btn" id="dstop" style="background:var(--bad)">⏹ סיום</button>
+        </div></div>`;
+      wrap.querySelectorAll('.driveopt').forEach(b => b.onclick = () => { if (cfg.mode === 'quiz') { pendingPick = +b.dataset.i; TTS.cancel(); } });
+      $('#drepeat', wrap).onclick = () => { pendingPick = 'repeat'; TTS.cancel(); };
+      $('#dskip', wrap).onclick = () => { pendingPick = 'skip'; TTS.cancel(); };
+      $('#dpause', wrap).onclick = () => { paused = !paused; $('#dpause', wrap).textContent = paused ? '▶️ המשך' : '⏸ השהה'; if (paused) TTS.cancel(); status(paused ? 'מושהה' : ''); };
+      $('#dstop', wrap).onclick = () => { stop(); finishScreen(); };
+    };
+    const showResult = (q, pick) => {
+      const ok = pick === q.correct;
+      wrap.querySelectorAll('.driveopt').forEach(b => { const k = +b.dataset.i; b.disabled = true; if (k === q.correct) b.classList.add('correct'); if (pick === k && !ok) b.classList.add('wrong'); });
+      $('#dfeedback', wrap).innerHTML = `<div class="why ${ok || pick == null ? '' : 'bad'}"><b>${pick == null ? '' : ok ? '✔ נכון!' : '✘ לא נכון.'}</b> התשובה: <b>${HEB[q.correct]}. ${esc(q.options[q.correct])}</b>${q.why ? `<br><span class="small">${esc(q.why)}</span>` : ''}</div>`;
+    };
+    // consume a manual button press or a voice command; returns {pick}|{cmd}|null
+    const takeInput = () => { const p = pendingPick; pendingPick = null; if (p == null) return null; return typeof p === 'number' ? { pick: p } : { cmd: p }; };
+    const speakChecked = async (t) => { await waitIfPaused(); if (!alive) return; await TTS.speak(t); };
+    (async () => {
+      await sleep(300);
+      while (alive && i < qs.length) {
+        const q = qs[i]; let redo = false; pendingPick = null;
+        draw(q, 'מקריא…');
+        await speakChecked(`שאלה ${i + 1}.`); await speakChecked(q.q);
+        if (cfg.mode === 'quiz' || cfg.readOptionsInListen) for (let k = 0; k < q.options.length && alive; k++) { if (takeInputPeek()) break; await speakChecked(`${HEB[k]}. ${q.options[k]}`); }
+        if (!alive) break;
+        let result = null;
+        if (cfg.mode === 'quiz') {
+          // answer window: manual buttons + speech recognition, retry a couple of times on "unknown"
+          const deadline = Date.now() + cfg.wait * 1000 * 3;
+          let tries = 0;
+          while (alive && !result) {
+            const manual = takeInput(); if (manual) { result = manual; break; }
+            await waitIfPaused();
+            status(SR ? '🎤 מקשיב… אמור א/ב/ג/ד' : 'לחץ על התשובה');
+            const t0 = Date.now();
+            let heard = (SR && !srBroken) ? await listen(cfg.wait * 1000) : null;
+            if (SR && !srBroken && heard == null && Date.now() - t0 < 1500) { srBroken = true; status('🎤 המיקרופון לא זמין – לחץ על התשובה'); }
+            if (heard == null) { const end = t0 + cfg.wait * 1000; while (Date.now() < end && alive && pendingPick == null) { await waitIfPaused(); await sleep(150); } }
+            const manual2 = takeInput(); if (manual2) { result = manual2; break; }
+            const p = parseSpeech(heard);
+            if (p && (p.pick != null || p.cmd)) { result = p; break; }
+            tries++; status(p && p.unknown ? `שמעתי "${p.unknown}" – לא הבנתי` : (srBroken ? 'לחץ על התשובה' : 'לא שמעתי'));
+            if (Date.now() > deadline || tries >= 3) { result = { pick: null }; break; }
+            await speakChecked(srBroken ? 'לחץ על התשובה.' : tries === 1 ? 'לא הבנתי. אמור א, ב, ג או ד.' : 'שוב, בבקשה: א, ב, ג או ד.');
+          }
+          if (!alive) break;
+          if (result.cmd === 'repeat') { redo = true; }
+          else if (result.cmd === 'stop') { stop(); finishScreen(); return; }
+          else if (result.cmd === 'pause') { paused = true; $('#dpause', wrap).textContent = '▶️ המשך'; status('מושהה – לחץ המשך'); await waitIfPaused(); redo = true; }
+          else if (result.cmd === 'skip') { /* fallthrough: reveal answer without scoring */ showResult(q, null); await speakChecked(`התשובה: ${HEB[q.correct]}. ${q.options[q.correct]}`); }
+          else {
+            const pick = result.pick; const ok = pick === q.correct;
+            if (pick != null) { record(q.id, ok); if (ok) right++; else wrongList.push(q); }
+            showResult(q, pick);
+            status('');
+            if (pick == null) await speakChecked(`לא נענתה. התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+            else if (ok) await speakChecked(`נכון! ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+            else await speakChecked(`לא נכון. בחרת ${HEB[pick]}. התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+            if (q.why) await speakChecked(q.why);
+          }
+        } else {
+          // listen-only
+          await sleep(600);
+          showResult(q, null);
+          await speakChecked(`התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+          if (q.why) await speakChecked(q.why);
+          const c = takeInput(); if (c && c.cmd === 'repeat') redo = true; if (c && c.cmd === 'stop') { stop(); finishScreen(); return; }
+        }
+        if (!alive) break;
+        if (!redo) {
+          // pause before next; allow repeat/stop during it
+          status('השאלה הבאה בעוד רגע…');
+          const end = Date.now() + cfg.autoNext * 1000;
+          while (Date.now() < end && alive) { const c = takeInput(); if (c && c.cmd === 'repeat') { redo = true; break; } if (c && c.cmd === 'stop') { stop(); finishScreen(); return; } if (c && c.cmd === 'skip') break; await sleep(150); }
+          if (!redo) i++;
+        }
+      }
+      if (alive) { stop(); await TTS.speak(`סיימת. ${right} תשובות נכונות מתוך ${qs.length}.`); finishScreen(); }
+    })();
+    function takeInputPeek() { return pendingPick != null; }
+    // leaving the view stops speech
+    const onHash = () => { if (!location.hash.startsWith('#/drive/go')) { stop(); window.removeEventListener('hashchange', onHash); } };
+    window.addEventListener('hashchange', onHash);
+    return wrap;
+  };
 
   views.howto = () => {
     setTitle('איך נרשמים למבחן');

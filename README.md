@@ -32,3 +32,11 @@ Save the harvested key as `data/raw/form2_answers.json` (same shape as form1) an
 ```bash
 python -m http.server 8765 --directory docs
 ```
+
+## Driving mode (speech)
+
+`#/drive` — hands-free study using the browser's Web Speech API:
+* **TTS** (`speechSynthesis`, `he-IL`) reads the question, the options, the verdict and the explanation. Needs a Hebrew voice on the device (Android: Google TTS → Hebrew; iOS: built-in Carmit; Windows: add Hebrew speech pack).
+* **Voice answers** (`SpeechRecognition`, Chrome/Android + Safari): say `א/ב/ג/ד` or `אחת/שתיים/שלוש/ארבע`; commands `חזור`, `הבא`, `עצור`. Falls back to big tap buttons when the mic is unavailable. Recognition needs network; TTS works offline if the voice is installed.
+* Listen-only mode reads question → correct answer → explanation ("podcast").
+* Screen Wake Lock keeps the display on while running.
