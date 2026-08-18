@@ -108,7 +108,7 @@
     cont: { desc: 'צפירה רצופה', he: 'צפירה מתמשכת – מצוקה', svg: seq('----', 'רצופה ללא הפסק') },
   };
   // ---- exam picture numbers (from the harvested quizzes) ----
-  const NUMBERS = { 71: 'misc:entrance', 77: 'shape:ball1', 80: 'shape:ball2', 82: 'shape:coneDown', 83: 'shape:flagBall', 84: 'shape:hourglass', 85: 'shape:coneUpNet', 86: 'shape:diamond',
+  const NUMBERS = { 71: 'misc:entrance', 77: 'shape:ball1', 79: 'shape:ram', 80: 'shape:ball2', 82: 'shape:coneDown', 83: 'shape:flagBall', 84: 'shape:hourglass', 85: 'shape:coneUpNet', 86: 'shape:diamond',
     91: 'flag:U', 92: 'flag:N', 93: 'flag:C', 94: 'flag:T', 95: 'flag:B', 96: 'flag:S', 97: 'flag:G', 98: 'flag:A', 99: 'flag:K', 100: 'flag:H', 101: 'flag:L', 102: 'flag:D', 103: 'flag:I', 104: 'flag:O', 105: 'flag:E', 106: 'flag:Q', 107: 'flag:X', 108: 'flag:P', 109: 'flag:F', 110: 'flag:V',
     115: 'sound:s5', 119: 'sound:sos', 122: 'sound:fog3' };
   SHAPES.coneUpNet = { he: 'חרוט קודקוד למעלה (עם שעון חול = רשתות מעל 150 מ\')', detail: 'חרוט קודקוד למעלה', svg: S(coneUp(50, mx, 16)) };

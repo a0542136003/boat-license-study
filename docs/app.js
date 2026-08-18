@@ -20,6 +20,7 @@
   // ---------- helpers ----------
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const qimg = q => q.img ? `<div class="qimgwrap"><img class="qimg" loading="lazy" src="${IMG ? (IMG[q.img.split('/').pop()] || q.img) : q.img}" alt="תרשים"></div>` : '';
   const imgSrc = n => IMG ? IMG[`p${String(n).padStart(2, '0')}.jpg`] : `pdf/p${String(n).padStart(2, '0')}.jpg`;
   const srcLabel = q => q.source === 'pdf' ? `חוברת עמ' ${q.page || ''}` : `מבחן ${q.course} · שאלה ${q.n}`;
   const stats = () => store.get('stats', {});
@@ -114,7 +115,7 @@
     const { index, total, onAnswer, showAnswer } = opts;
     const div = document.createElement('div'); div.className = 'card question';
     div.innerHTML = `<div class="qhead"><span>${index != null ? `שאלה ${index + 1}${total ? ' / ' + total : ''}` : ''}</span><span>${TTS.ok ? '<button class="iconbtn speakbtn" title="הקרא">🔊</button>' : ''}<span class="tag">${esc(q.topic)}</span><span class="tag">${esc(srcLabel(q))}</span></span></div>
-      <div class="qtext">${rich(q.q)}</div>${showAnswer ? picLegend(q) : ''}
+      <div class="qtext">${rich(q.q)}</div>${qimg(q)}${showAnswer ? picLegend(q) : ''}
       <div class="opts">${q.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="letter">${HEB[i]}.</span> ${rich(o)}</button>`).join('')}</div>
       <div class="feedback"></div>`;
     const buttons = [...div.querySelectorAll('.opt')];
@@ -283,7 +284,7 @@
       const term = $('#search', wrap).value.trim(); const src = wrap.querySelector('input[name=src]:checked').value; const topic = $('#topicSel', wrap).value;
       let qs = DB.questions.filter(q => (src === 'all' || q.source === src) && (!topic || q.topic === topic) && (!term || (q.q + ' ' + q.options.join(' ') + ' ' + (q.why || '')).includes(term)));
       $('#cnt', wrap).textContent = `${qs.length} שאלות`;
-      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${rich(q.q)}</div>${picLegend(q)}
+      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${rich(q.q)}</div>${qimg(q)}${picLegend(q)}
         ${q.options.map((o, k) => `<div class="opt ${k === q.correct ? 'correct' : ''}" style="cursor:default"><span class="letter">${HEB[k]}.</span> ${rich(o)}</div>`).join('')}${q.why ? `<div class="why small">${esc(q.why)}</div>` : ''}</div>`).join('') + (qs.length > 200 ? '<div class="card muted center">מוצגות 200 הראשונות – צמצם את החיפוש</div>' : '');
     };
     wrap.addEventListener('input', draw); wrap.addEventListener('change', draw); setTimeout(draw, 0);
@@ -356,7 +357,7 @@
     const draw = (q, phase) => {
       wrap.innerHTML = `<div class="card drivecard">
         <div class="qhead"><span>שאלה ${i + 1} / ${qs.length}</span><span id="dstatus" class="muted">${phase}</span></div>
-        <div class="qtext big">${rich(q.q)}</div>
+        <div class="qtext big">${rich(q.q)}</div>${qimg(q)}
         <div class="driveopts">${q.options.map((o, k) => `<button class="opt driveopt" data-i="${k}"><span class="letter">${HEB[k]}</span><span class="otext">${rich(o)}</span></button>`).join('')}</div>
         <div id="dfeedback"></div>
         <div class="drivectl">

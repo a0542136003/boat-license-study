@@ -1,7 +1,7 @@
 /* משיט 12 – offline cache. Bump VERSION when files change. */
-const VERSION = 'ml12-v5';
+const VERSION = 'ml12-v6';
 const CORE = ['./', './index.html', './style.css', './app.js', './pics.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './data/bundle.json'];
-const PAGES = Array.from({length: 15}, (_, i) => `./pdf/p${String(i + 1).padStart(2, '0')}.jpg`);
+const PAGES = Array.from({length: 15}, (_, i) => `./pdf/p${String(i + 1).padStart(2, '0')}.jpg`).concat(["c1-28", "c1-29", "c1-31", "c1-36", "c1-38", "c1-39", "c2-28", "c2-29", "c2-33", "c2-37", "c2-40", "c2-41", "c2-47"].map(k => `./img/${k}.jpg`));
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.concat(PAGES))).then(() => self.skipWaiting()));
 });
