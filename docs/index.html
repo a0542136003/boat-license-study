@@ -3,36 +3,109 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b3d5c">
+<meta name="theme-color" content="#0f6f73">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>משיט 12 – לימוד לרישיון סירה</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="fonts/heebo.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l12-7z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5V5.5M8 7h8M8 11h8"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 16h14M6 16v2M18 16v2M4 12l2-5h12l2 5v4H4z"/><circle cx="8" cy="14" r="1" fill="currentColor"/><circle cx="16" cy="14" r="1" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2 4 2 4H6"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M20 16l-5-5-8 8"/></symbol>
+  <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15 9l-2 5-5 2 2-5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-skip" viewBox="0 0 24 24"><path d="M6 6v12M9 6l9 6-9 6z" fill="currentColor" stroke="none"/><path d="M6 6v12"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.95A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z"/></symbol>
+  <symbol id="i-cloud-check" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.95A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z"/><path d="M9 13.5l2 2 4-4"/></symbol>
+  <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.95A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9zM4 4l16 16"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18" cy="12" r="1.3" fill="currentColor"/></symbol>
+  <symbol id="i-anchor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5V21M5 13a7 7 0 0 0 14 0M3.5 13H7M17 13h3.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H5a1 1 0 0 1-1-1zM20 14h-3v6h2a1 1 0 0 0 1-1z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
 <header class="top">
-  <button class="iconbtn" id="menuBtn" aria-label="תפריט">☰</button>
-  <h1 id="title">משיט 12 ⚓</h1>
-  <button class="iconbtn" id="themeBtn" aria-label="מצב כהה/בהיר">◐</button>
+  <button class="ib" id="menuBtn" aria-label="תפריט"><svg><use href="#i-menu"/></svg></button>
+  <div class="ttl"><span id="title">משיט 12</span><span id="crumb" class="crumb"></span></div>
+  <div class="topr">
+    <button class="ib syncdot" id="syncBtn" aria-label="סנכרון" title="סנכרון לגיליון"><svg><use href="#i-cloud-off"/></svg><i></i></button>
+    <button class="ib" id="themeBtn" aria-label="מצב כהה/בהיר"><svg><use href="#i-moon"/></svg></button>
+  </div>
 </header>
-<nav id="nav" class="nav">
-  <a href="#/" data-view="home">🏠 בית</a>
-  <a href="#/lessons" data-view="lessons">📖 שיעורים</a>
-  <a href="#/practice" data-view="practice">🎯 תרגול לפי נושא</a>
-  <a href="#/drive" data-view="drive">🚗 מצב נהיגה</a>
-  <a href="#/exam" data-view="exam">📝 סימולציית מבחן</a>
-  <a href="#/mistakes" data-view="mistakes">🔁 חזרה על טעויות</a>
-  <a href="#/pics" data-view="pics">🚩 דגלים וסימנים</a>
-  <a href="#/browse" data-view="browse">📚 כל השאלות והתשובות</a>
-  <a href="#/pages" data-view="pages">🖼️ דפי החוברת</a>
-  <a href="#/howto" data-view="howto">🧭 איך נרשמים</a>
+
+<div id="scrim" class="scrim"></div>
+<nav id="drawer" class="drawer" aria-label="תפריט">
+  <div class="drawer-head"><span class="brand"><svg><use href="#i-anchor"/></svg> משיט 12</span><button class="ib" id="drawerClose" aria-label="סגור"><svg><use href="#i-close"/></svg></button></div>
+  <a href="#/" data-view="home"><svg><use href="#i-home"/></svg>בית</a>
+  <a href="#/practice" data-view="practice"><svg><use href="#i-target"/></svg>תרגול</a>
+  <a href="#/mistakes" data-view="mistakes"><svg><use href="#i-refresh"/></svg>לחיזוק</a>
+  <a href="#/exam" data-view="exam"><svg><use href="#i-clock"/></svg>סימולציית מבחן</a>
+  <a href="#/drive" data-view="drive"><svg><use href="#i-car"/></svg>מצב נהיגה</a>
+  <div class="drawer-sep"></div>
+  <a href="#/lessons" data-view="lessons"><svg><use href="#i-book"/></svg>שיעורים</a>
+  <a href="#/pics" data-view="pics"><svg><use href="#i-flag"/></svg>דגלים וסימנים</a>
+  <a href="#/browse" data-view="browse"><svg><use href="#i-list"/></svg>כל השאלות והתשובות</a>
+  <a href="#/pages" data-view="pages"><svg><use href="#i-image"/></svg>דפי החוברת</a>
+  <div class="drawer-sep"></div>
+  <a href="#/sync" data-view="sync"><svg><use href="#i-cloud"/></svg>סנכרון לגיליון</a>
+  <a href="#/howto" data-view="howto"><svg><use href="#i-compass"/></svg>איך נרשמים</a>
 </nav>
-<main id="app" class="app"><div class="card">טוען…</div></main>
-<footer class="foot"><span id="status"></span></footer>
+
+<div class="shell">
+  <aside class="rail" aria-label="ניווט">
+    <a href="#/" data-view="home"><svg><use href="#i-home"/></svg><span>בית</span></a>
+    <a href="#/practice" data-view="practice"><svg><use href="#i-target"/></svg><span>תרגול</span></a>
+    <a href="#/mistakes" data-view="mistakes"><svg><use href="#i-refresh"/></svg><span>לחיזוק</span><b class="pill" id="weakPill" hidden></b></a>
+    <a href="#/exam" data-view="exam"><svg><use href="#i-clock"/></svg><span>מבחן</span></a>
+    <a href="#/drive" data-view="drive"><svg><use href="#i-car"/></svg><span>נהיגה</span></a>
+    <a href="#/lessons" data-view="lessons"><svg><use href="#i-book"/></svg><span>שיעורים</span></a>
+    <a href="#/pics" data-view="pics"><svg><use href="#i-flag"/></svg><span>סימנים</span></a>
+    <a href="#/browse" data-view="browse"><svg><use href="#i-list"/></svg><span>מאגר</span></a>
+  </aside>
+  <main id="app" class="app" aria-live="polite">
+    <div class="skel"><div class="sk h"></div><div class="sk"></div><div class="sk"></div><div class="sk s"></div></div>
+  </main>
+</div>
+
+<nav class="tabbar" aria-label="ניווט מהיר">
+  <a href="#/practice" data-view="practice"><svg><use href="#i-target"/></svg><span>תרגול</span></a>
+  <a href="#/mistakes" data-view="mistakes"><svg><use href="#i-refresh"/></svg><span>לחיזוק</span></a>
+  <a href="#/exam" data-view="exam"><svg><use href="#i-clock"/></svg><span>מבחן</span></a>
+  <a href="#/drive" data-view="drive"><svg><use href="#i-car"/></svg><span>נהיגה</span></a>
+  <a href="#/" data-view="home"><svg><use href="#i-home"/></svg><span>בית</span></a>
+</nav>
+
+<div id="toast" class="toast" role="status"></div>
 <script src="pics.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

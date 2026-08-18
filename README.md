@@ -40,3 +40,17 @@ python -m http.server 8765 --directory docs
 * **Voice answers** (`SpeechRecognition`, Chrome/Android + Safari): say `א/ב/ג/ד` or `אחת/שתיים/שלוש/ארבע`; commands `חזור`, `הבא`, `עצור`. Falls back to big tap buttons when the mic is unavailable. Recognition needs network; TTS works offline if the voice is installed.
 * Listen-only mode reads question → correct answer → explanation ("podcast").
 * Screen Wake Lock keeps the display on while running.
+
+## Google Sheet tracking (v7)
+
+Every answer/skip is logged to a Google Sheet via a tiny Apps Script web app (no backend, no login in the app):
+
+1. Create a Google Sheet → **Extensions → Apps Script** → paste `tools/apps_script.gs` (replace Code.gs) → save.
+2. **Deploy → New deployment → Web app**, *Execute as: Me*, *Who has access: Anyone* → Deploy → copy the `/exec` URL.
+3. In the app: menu → **סנכרון לגיליון** → paste URL → שמור → בדוק חיבור.
+
+Sheets: `Log` (append-only: timestamp, device, mode, question_id, source, question_no, topic, question, answered, correct_answer, result right/wrong/skipped, seconds) and `Stats` (per question, weakest first; also via the sheet menu "משיט 12 → עדכן סטטיסטיקה").
+The app queues events offline (`localStorage`), flushes when online, and pulls per-question aggregates back (`?action=stats`) so progress is shared across devices. `tools/mock_sheet.py` is a local stand-in for testing.
+
+## Practice UX (v7)
+Question-first flow: quick start / resume, per-topic launcher, keyboard `1–4`, `S` = skip & reveal, `Enter` = next; skipped questions count as "לחיזוק" until answered correctly twice in a row.

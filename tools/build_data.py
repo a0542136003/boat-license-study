@@ -54,27 +54,37 @@ lessons = load(os.path.join(DATA, 'lessons.json'))
 topics = sorted({q['topic'] for q in questions})
 howto = load(os.path.join(DATA, 'howto.json')) if os.path.exists(os.path.join(DATA, 'howto.json')) else {}
 
-bundle = {'version': 6, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
+bundle = {'version': 7, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
           'counts': {'course1': sum(q['course'] == 1 for q in questions), 'course2': sum(q['course'] == 2 for q in questions),
                      'pdf': sum(q['source'] == 'pdf' for q in questions), 'total': len(questions)}}
 with open(os.path.join(DOCS_DATA, 'bundle.json'), 'w', encoding='utf-8') as f:
     json.dump(bundle, f, ensure_ascii=False, indent=0)
 print('bundle:', bundle['counts'], 'topics:', len(topics), 'lessons:', len(lessons))
 
+# --- copy Apps Script into docs so the app can show it ---
+shutil = __import__('shutil'); shutil.copyfile(os.path.join(ROOT, 'tools', 'apps_script.gs'), os.path.join(DOCS, 'apps_script.gs'))
+
 # --- single-file offline build ---
 html = open(os.path.join(DOCS, 'index.html'), encoding='utf-8').read()
 css = open(os.path.join(DOCS, 'style.css'), encoding='utf-8').read()
 js = open(os.path.join(DOCS, 'app.js'), encoding='utf-8').read()
 pics = open(os.path.join(DOCS, 'pics.js'), encoding='utf-8').read()
+syncjs = open(os.path.join(DOCS, 'sync.js'), encoding='utf-8').read()
+gs = open(os.path.join(DOCS, 'apps_script.gs'), encoding='utf-8').read()
+fontcss = open(os.path.join(DOCS, 'fonts', 'heebo.css'), encoding='utf-8').read()
+def data_uri(path, mime):
+    with open(path, 'rb') as f: return 'data:%s;base64,%s' % (mime, base64.b64encode(f.read()).decode())
+fontcss = re.sub(r"url\((heebo-[^)]+)\)", lambda m: 'url(' + data_uri(os.path.join(DOCS, 'fonts', m.group(1)), 'font/woff2') + ')', fontcss)
 imgs = {}
 for p in sorted(glob.glob(os.path.join(DOCS, 'pdf', '*.jpg'))) + sorted(glob.glob(os.path.join(DOCS, 'img', '*.jpg'))):
-    with open(p, 'rb') as f:
-        imgs[os.path.basename(p)] = 'data:image/jpeg;base64,' + base64.b64encode(f.read()).decode()
-inline = html.replace('<link rel="stylesheet" href="style.css">', '<style>' + css + '</style>')
+    imgs[os.path.basename(p)] = data_uri(p, 'image/jpeg')
+inline = html.replace('<link rel="stylesheet" href="fonts/heebo.css">', '<style>' + fontcss + '</style>')
+inline = inline.replace('<link rel="stylesheet" href="style.css">', '<style>' + css + '</style>')
 inline = inline.replace('<script src="pics.js"></script>', '<script>' + pics.replace('</script>', '<\/script>') + '</script>')
+inline = inline.replace('<script src="sync.js"></script>', '<script>' + syncjs.replace('</script>', '<\/script>') + '</script>')
 inline = inline.replace('<script src="app.js"></script>',
-    '<script>window.__BUNDLE__=' + json.dumps(bundle, ensure_ascii=False) + ';window.__IMAGES__=' + json.dumps(imgs) + ';</script>'
-    '<script>' + js.replace('</script>', '<\\/script>') + '</script>')
+    '<script>window.__BUNDLE__=' + json.dumps(bundle, ensure_ascii=False) + ';window.__IMAGES__=' + json.dumps(imgs) + ';window.__APPS_SCRIPT__=' + json.dumps(gs) + ';</script>'
+    '<script>' + js.replace('</script>', '<\/script>') + '</script>')
 inline = re.sub(r'<link rel="manifest"[^>]*>', '', inline)
 os.makedirs(os.path.join(ROOT, 'dist'), exist_ok=True)
 out = os.path.join(ROOT, 'dist', 'boat-license-offline.html')
