@@ -540,6 +540,7 @@
   views.sync = () => {
     setTitle('סנכרון לגיליון Google');
     if (!SYNC) return '<div class="panel">מודול הסנכרון לא נטען</div>';
+    if (window.__q && window.__q.url && /^https:\/\/script\.google\.com\//.test(window.__q.url)) { SYNC.setCfg({ url: window.__q.url }); history.replaceState(null, '', '#/sync'); toast('כתובת הגיליון נשמרה'); setTimeout(() => { SYNC.ping().then(() => { updateSyncDot(); route(); }).catch(() => route()); }, 50); }
     const c = SYNC.cfg(); const st = SYNC.status(); const m = SYNC.meta();
     const wrap = document.createElement('div');
     wrap.innerHTML = `<div class="panel">
@@ -575,8 +576,9 @@
 
   // ---------- router ----------
   function route() {
-    const parts = location.hash.replace(/^#\/?/, '').split('/');
-    const v = parts[0] || 'home'; const rest = parts.slice(1);
+    const [path, qs] = location.hash.replace(/^#\/?/, '').split('?');
+    const parts = path.split('/'); const v = parts[0] || 'home'; const rest = parts.slice(1);
+    window.__q = Object.fromEntries(new URLSearchParams(qs || ''));
     $$('[data-view]').forEach(a => a.classList.toggle('active', a.dataset.view === v || (v === 'lesson' && a.dataset.view === 'lessons') || (v === 'resume' && a.dataset.view === 'practice')));
     let out;
     if (v === 'mistakes' && rest[1] === 'go') out = views.mistakes.go(rest[0]);
