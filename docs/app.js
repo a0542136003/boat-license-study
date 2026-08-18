@@ -82,27 +82,46 @@
   let wakeLock = null;
   const keepAwake = async on => { try { if (on && 'wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) { } };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wakeLock) keepAwake(true); });
-  const speakQuestion = async q => { TTS.cancel(); await TTS.speak(q.q); for (let i = 0; i < q.options.length; i++) await TTS.speak(`${HEB[i]}. ${q.options[i]}`); };
+  const speakQuestion = async q => { TTS.cancel(); await TTS.speak(spoken(q.q)); for (let i = 0; i < q.options.length; i++) await TTS.speak(`${HEB[i]}. ${spoken(q.options[i])}`); };
 
   // ---------- exam pictures (pics.js) ----------
   const PICS = window.PICS || null;
-  const picNums = q => { const set = new Set(); const re = /תמונ(?:ה|ות)\s*(\d+)(?:\s*(?:ו|–|-|,)\s*(\d+))?/g; let m; const txt = q.q + ' ' + q.options.join(' '); while ((m = re.exec(txt))) { set.add(+m[1]); if (m[2]) set.add(+m[2]); } return [...set].filter(n => PICS && PICS.byNumber(n)); };
-  const picStrip = (q, withMeaning) => { if (!PICS) return ''; const ns = picNums(q); if (!ns.length) return ''; return `<div class="pics">${ns.map(n => { const p = PICS.byNumber(n); return `<figure class="pic"><div class="picsvg">${p.svg}</div><figcaption>תמונה ${n}${withMeaning ? `<br><b>${esc(p.info.he)}</b>` : ''}</figcaption></figure>`; }).join('')}</div>`; };
+  const PIC_RE = /תמונ(?:ה|ות)\s*(\d+)((?:\s*(?:ו\s*-?\s*|–|-|,|\/)\s*\d+)*)/g;
+  const picsIn = str => { const out = []; let m; PIC_RE.lastIndex = 0; while ((m = PIC_RE.exec(str))) { out.push(+m[1]); (m[2] || '').replace(/\d+/g, d => { out.push(+d); return d; }); } return out; };
+  const KEYPICS = [
+    [/מעו?יי?ן שחור/, 'shape:diamond'], [/שני כדורים/, 'shape:ball2'], [/שלושה כדורים/, 'shape:ball3'], [/כדור שחור על גג|כדור שחור על מנהלת|כדור שחור המונף מעל מנהלת/, 'misc:blackBall'],
+    [/כדור שחור (בחרטום|בקדמת|אחד)|כדור שחור המונף בקדמת/, 'shape:ball1'], [/שני חרוטים|שני משולשים שחורים/, 'shape:hourglass'], [/חרוט שחור שקודקודו כלפי מטה/, 'shape:coneDown'],
+    [/כדור.{0,6}מעו?יי?ן.{0,6}כדור/, 'shape:ram'], [/גליל שחור/, 'shape:cyl'], [/נס אדום/, 'misc:redPennant'], [/דגל צוללים/, 'flag:A'], [/אור לבן מעל (אור )?ירוק/, 'misc:whiteGreen'],
+    [/חמש (או יותר )?צפירות קצרות|5 צפירות קצרות/, 'sound:s5'], [/3 קצרות,? 3 ארוכות|שלוש צפירות קצרות, שלוש ארוכות/, 'sound:sos']
+  ];
+  const picTag = (key, n, cls = 'inpic') => { if (!PICS) return ''; const svg = PICS.svg(key); if (!svg) return ''; return `<span class="${cls}" title="${n != null ? 'תמונה ' + n : ''}">${svg}${n != null ? `<small>${n}</small>` : ''}</span>`; };
+  // escape text and turn "תמונה NN" into the actual symbol (inline); add a keyword icon when a symbol is described in words
+  const rich = (text, { keywords = true } = {}) => {
+    let h = esc(text); let hadPic = false;
+    if (PICS) {
+      h = h.replace(PIC_RE, (m, first, rest) => { const nums = [+first, ...((rest || '').match(/\d+/g) || []).map(Number)]; const known = nums.filter(n => PICS.byNumber(n)); if (!known.length) return m; hadPic = true; return nums.map(n => PICS.byNumber(n) ? picTag(PICS.byNumber(n).key, n) : `תמונה ${n}`).join(' '); });
+      if (keywords && !hadPic) { for (const [re, key] of KEYPICS) { if (key && re.test(text)) { h = picTag(key, null) + ' ' + h; break; } } }
+    }
+    return h;
+  };
+  // spoken form for TTS: "תמונה 92" -> "תמונה 92, דגל משבצות כחול לבן"
+  const spoken = text => !PICS ? text : String(text).replace(PIC_RE, m => m.replace(/\d+/g, d => { const p = PICS.byNumber(+d); return p && p.info.desc ? `${d}, ${p.info.desc},` : d; }));
   const fillPics = root => { if (!PICS) return; root.querySelectorAll('[data-pic]').forEach(el => { el.innerHTML = PICS.svg(el.dataset.pic); el.classList.add('picsvg'); }); root.querySelectorAll('[data-picn]').forEach(el => { const p = PICS.byNumber(+el.dataset.picn); if (p) { el.innerHTML = p.svg; el.classList.add('picsvg'); } }); };
+  const picLegend = q => { if (!PICS) return ''; const ns = [...new Set(picsIn(q.q + ' ' + q.options.join(' ')))].filter(n => PICS.byNumber(n)); if (!ns.length) return ''; return `<div class="piclegend">${ns.map(n => `<span><b>${n}</b> ${esc(PICS.byNumber(n).info.he)}</span>`).join('')}</div>`; };
 
   // ---------- question card ----------
   function renderQuestion(q, opts = {}) {
     const { index, total, onAnswer, showAnswer } = opts;
     const div = document.createElement('div'); div.className = 'card question';
     div.innerHTML = `<div class="qhead"><span>${index != null ? `שאלה ${index + 1}${total ? ' / ' + total : ''}` : ''}</span><span>${TTS.ok ? '<button class="iconbtn speakbtn" title="הקרא">🔊</button>' : ''}<span class="tag">${esc(q.topic)}</span><span class="tag">${esc(srcLabel(q))}</span></span></div>
-      <div class="qtext">${esc(q.q)}</div>${picStrip(q, !!showAnswer)}
-      <div class="opts">${q.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="letter">${HEB[i]}.</span> ${esc(o)}</button>`).join('')}</div>
+      <div class="qtext">${rich(q.q)}</div>${showAnswer ? picLegend(q) : ''}
+      <div class="opts">${q.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="letter">${HEB[i]}.</span> ${rich(o)}</button>`).join('')}</div>
       <div class="feedback"></div>`;
     const buttons = [...div.querySelectorAll('.opt')];
     const reveal = picked => {
       buttons.forEach(b => { b.disabled = true; const i = +b.dataset.i; if (i === q.correct) b.classList.add('correct'); if (picked === i && i !== q.correct) b.classList.add('wrong'); if (picked === i) b.classList.add('picked'); });
       const ok = picked === q.correct;
-      const ps = $('.pics', div); if (ps) ps.outerHTML = picStrip(q, true);
+      if (!$('.piclegend', div)) $('.qtext', div).insertAdjacentHTML('afterend', picLegend(q));
       $('.feedback', div).innerHTML = `<div class="why ${ok ? '' : 'bad'}"><b>${ok ? '✔ נכון!' : '✘ לא נכון.'}</b> התשובה הנכונה: <b>${HEB[q.correct]}. ${esc(q.options[q.correct])}</b>${q.why ? `<br><span class="small">${esc(q.why)}</span>` : ''}</div>`;
     };
     if (showAnswer) reveal(null);
@@ -264,8 +283,8 @@
       const term = $('#search', wrap).value.trim(); const src = wrap.querySelector('input[name=src]:checked').value; const topic = $('#topicSel', wrap).value;
       let qs = DB.questions.filter(q => (src === 'all' || q.source === src) && (!topic || q.topic === topic) && (!term || (q.q + ' ' + q.options.join(' ') + ' ' + (q.why || '')).includes(term)));
       $('#cnt', wrap).textContent = `${qs.length} שאלות`;
-      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${esc(q.q)}</div>${picStrip(q, true)}
-        ${q.options.map((o, k) => `<div class="opt ${k === q.correct ? 'correct' : ''}" style="cursor:default"><span class="letter">${HEB[k]}.</span> ${esc(o)}</div>`).join('')}${q.why ? `<div class="why small">${esc(q.why)}</div>` : ''}</div>`).join('') + (qs.length > 200 ? '<div class="card muted center">מוצגות 200 הראשונות – צמצם את החיפוש</div>' : '');
+      list.innerHTML = qs.slice(0, 200).map(q => `<div class="card"><div class="qhead"><span>${esc(srcLabel(q))}</span><span><span class="tag">${esc(q.topic)}</span>${s[q.id] ? `<span class="tag">${s[q.id].right}✔ ${s[q.id].wrong}✘</span>` : ''}</span></div><div class="qtext">${rich(q.q)}</div>${picLegend(q)}
+        ${q.options.map((o, k) => `<div class="opt ${k === q.correct ? 'correct' : ''}" style="cursor:default"><span class="letter">${HEB[k]}.</span> ${rich(o)}</div>`).join('')}${q.why ? `<div class="why small">${esc(q.why)}</div>` : ''}</div>`).join('') + (qs.length > 200 ? '<div class="card muted center">מוצגות 200 הראשונות – צמצם את החיפוש</div>' : '');
     };
     wrap.addEventListener('input', draw); wrap.addEventListener('change', draw); setTimeout(draw, 0);
     return wrap;
@@ -337,8 +356,8 @@
     const draw = (q, phase) => {
       wrap.innerHTML = `<div class="card drivecard">
         <div class="qhead"><span>שאלה ${i + 1} / ${qs.length}</span><span id="dstatus" class="muted">${phase}</span></div>
-        <div class="qtext big">${esc(q.q)}</div>${picStrip(q, false)}
-        <div class="driveopts">${q.options.map((o, k) => `<button class="opt driveopt" data-i="${k}"><span class="letter">${HEB[k]}</span><span class="otext">${esc(o)}</span></button>`).join('')}</div>
+        <div class="qtext big">${rich(q.q)}</div>
+        <div class="driveopts">${q.options.map((o, k) => `<button class="opt driveopt" data-i="${k}"><span class="letter">${HEB[k]}</span><span class="otext">${rich(o)}</span></button>`).join('')}</div>
         <div id="dfeedback"></div>
         <div class="drivectl">
           <button class="btn secondary" id="drepeat">🔁 חזור</button>
@@ -365,8 +384,8 @@
       while (alive && i < qs.length) {
         const q = qs[i]; let redo = false; pendingPick = null;
         draw(q, 'מקריא…');
-        await speakChecked(`שאלה ${i + 1}.`); await speakChecked(q.q);
-        if (cfg.mode === 'quiz' || cfg.readOptionsInListen) for (let k = 0; k < q.options.length && alive; k++) { if (takeInputPeek()) break; await speakChecked(`${HEB[k]}. ${q.options[k]}`); }
+        await speakChecked(`שאלה ${i + 1}.`); await speakChecked(spoken(q.q));
+        if (cfg.mode === 'quiz' || cfg.readOptionsInListen) for (let k = 0; k < q.options.length && alive; k++) { if (takeInputPeek()) break; await speakChecked(`${HEB[k]}. ${spoken(q.options[k])}`); }
         if (!alive) break;
         let result = null;
         if (cfg.mode === 'quiz') {
@@ -392,22 +411,22 @@
           if (result.cmd === 'repeat') { redo = true; }
           else if (result.cmd === 'stop') { stop(); finishScreen(); return; }
           else if (result.cmd === 'pause') { paused = true; $('#dpause', wrap).textContent = '▶️ המשך'; status('מושהה – לחץ המשך'); await waitIfPaused(); redo = true; }
-          else if (result.cmd === 'skip') { /* fallthrough: reveal answer without scoring */ showResult(q, null); await speakChecked(`התשובה: ${HEB[q.correct]}. ${q.options[q.correct]}`); }
+          else if (result.cmd === 'skip') { /* fallthrough: reveal answer without scoring */ showResult(q, null); await speakChecked(`התשובה: ${HEB[q.correct]}. ${spoken(q.options[q.correct])}`); }
           else {
             const pick = result.pick; const ok = pick === q.correct;
             if (pick != null) { record(q.id, ok); if (ok) right++; else wrongList.push(q); }
             showResult(q, pick);
             status('');
-            if (pick == null) await speakChecked(`לא נענתה. התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
-            else if (ok) await speakChecked(`נכון! ${HEB[q.correct]}. ${q.options[q.correct]}.`);
-            else await speakChecked(`לא נכון. בחרת ${HEB[pick]}. התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+            if (pick == null) await speakChecked(`לא נענתה. התשובה הנכונה: ${HEB[q.correct]}. ${spoken(q.options[q.correct])}.`);
+            else if (ok) await speakChecked(`נכון! ${HEB[q.correct]}. ${spoken(q.options[q.correct])}.`);
+            else await speakChecked(`לא נכון. בחרת ${HEB[pick]}. התשובה הנכונה: ${HEB[q.correct]}. ${spoken(q.options[q.correct])}.`);
             if (q.why) await speakChecked(q.why);
           }
         } else {
           // listen-only
           await sleep(600);
           showResult(q, null);
-          await speakChecked(`התשובה הנכונה: ${HEB[q.correct]}. ${q.options[q.correct]}.`);
+          await speakChecked(`התשובה הנכונה: ${HEB[q.correct]}. ${spoken(q.options[q.correct])}.`);
           if (q.why) await speakChecked(q.why);
           const c = takeInput(); if (c && c.cmd === 'repeat') redo = true; if (c && c.cmd === 'stop') { stop(); finishScreen(); return; }
         }
