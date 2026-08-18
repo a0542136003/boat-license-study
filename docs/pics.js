@@ -3,7 +3,7 @@
 (function () {
   const RED = '#c8102e', BLUE = '#0b3f9e', YEL = '#ffd100', WHT = '#ffffff', BLK = '#111111';
   const W = 120, H = 80;
-  const wrap = (inner, w = W, h = H, extra = '') => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" ${extra}>${inner}</svg>`;
+  const wrap = (inner, w = W, h = H, extra = '') => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" ${extra}><rect width="${w}" height="${h}" rx="6" fill="#f4f4f5"/>${inner}</svg>`;
   const pole = `<rect x="0" y="0" width="4" height="${H}" fill="#6b5b3e"/>`;
   const R = (x, y, w, h, f) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"/>`;
   const P = (pts, f) => `<polygon points="${pts}" fill="${f}"/>`;

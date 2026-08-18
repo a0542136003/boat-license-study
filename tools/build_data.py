@@ -54,7 +54,7 @@ lessons = load(os.path.join(DATA, 'lessons.json'))
 topics = sorted({q['topic'] for q in questions})
 howto = load(os.path.join(DATA, 'howto.json')) if os.path.exists(os.path.join(DATA, 'howto.json')) else {}
 
-bundle = {'version': 9, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
+bundle = {'version': 10, 'questions': questions, 'lessons': lessons, 'topics': topics, 'howto': howto,
           'counts': {'course1': sum(q['course'] == 1 for q in questions), 'course2': sum(q['course'] == 2 for q in questions),
                      'pdf': sum(q['source'] == 'pdf' for q in questions), 'total': len(questions)}}
 with open(os.path.join(DOCS_DATA, 'bundle.json'), 'w', encoding='utf-8') as f:
