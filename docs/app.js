@@ -31,7 +31,22 @@
   const openDrawer = o => { drawer.classList.toggle('open', o); scrim.classList.toggle('open', o); };
   $('#menuBtn').onclick = () => openDrawer(true); $('#drawerClose').onclick = () => openDrawer(false); scrim.onclick = () => openDrawer(false);
   drawer.addEventListener('click', e => { if (e.target.closest('a')) openDrawer(false); });
-  $('#syncBtn').onclick = () => { location.hash = '#/sync'; };
+  const syncBtnEl = $('#syncBtn');
+  if ('popover' in HTMLElement.prototype) {
+    const pop = document.createElement('div'); pop.id = 'syncpop'; pop.setAttribute('popover', ''); document.body.appendChild(pop);
+    syncBtnEl.setAttribute('popovertarget', 'syncpop');
+    const renderPop = () => {
+      if (!window.SYNC) { pop.innerHTML = '<p class="muted small">מודול הסנכרון לא נטען</p>'; return; }
+      const st = window.SYNC.status();
+      pop.innerHTML = `<b>סנכרון לגיליון</b><p class="muted small" style="margin:6px 0 10px">${syncStatusText(st, window.SYNC.meta())}</p>
+        <div class="row"><button class="btn sm" id="popFlush">שלח עכשיו (${st.pending})</button><button class="btn sm ghost" id="popOpen">הגדרות</button></div>`;
+      $('#popFlush', pop).onclick = async () => { await window.SYNC.flush(); renderPop(); updateSyncDot(); };
+      $('#popOpen', pop).onclick = () => { pop.hidePopover(); location.hash = '#/sync'; };
+    };
+    pop.addEventListener('toggle', e => { if (e.newState === 'open') renderPop(); });
+  } else {
+    syncBtnEl.onclick = () => { location.hash = '#/sync'; };
+  }
 
   // ---------- stats & recording ----------
   const stats = () => store.get('stats', {});
@@ -131,6 +146,17 @@
   const fillPics = root => { if (!PICS) return; $$('[data-pic]', root).forEach(el => { el.innerHTML = PICS.svg(el.dataset.pic); el.classList.add('picsvg'); }); $$('[data-picn]', root).forEach(el => { const p = PICS.byNumber(+el.dataset.picn); if (p) { el.innerHTML = p.svg; el.classList.add('picsvg'); } }); };
   const picLegend = q => { if (!PICS) return ''; const ns = [...new Set(picsIn(q.q + ' ' + q.options.join(' ')))].filter(n => PICS.byNumber(n)); if (!ns.length) return ''; return `<div class="piclegend">${ns.map(n => `<span><b>${n}</b> ${esc(PICS.byNumber(n).info.he)}</span>`).join('')}</div>`; };
 
+  // typed-@property animated counters; falls back to plain text when unsupported or reduced motion
+  const fillCounts = root => {
+    const sup = typeof CSSPropertyRule !== 'undefined' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $$('.count', root).forEach(el => {
+      const v = el.dataset.v || '0', suf = el.dataset.suffix || '';
+      el.setAttribute('aria-label', v + suf);
+      if (sup) { el.style.setProperty('--target', v); el.textContent = ''; el.classList.add('on'); }
+      else el.textContent = v + suf;
+    });
+  };
+
   // ---------- question card ----------
   /** opts: {index,total,onAnswer(pick,ok),onSkip(),showAnswer,immediate,picked} → element with .reveal(pick|null) */
   function renderQuestion(q, opts = {}) {
@@ -175,11 +201,12 @@
         store.del('resume'); refreshWeakPill();
         const done = right + wrong + skipped || 1;
         wrap.innerHTML = `<div class="panel raised"><h2>סיימת את הסבב</h2>
-          <div class="result"><div><b class="ok-text">${right}</b><span>נכון</span></div><div><b class="bad-text">${wrong}</b><span>לא נכון</span></div><div><b>${skipped}</b><span>דילוגים</span></div></div>
+          <div class="result"><div><b class="count ok-text" data-v="${right}">${right}</b><span>נכון</span></div><div><b class="count bad-text" data-v="${wrong}">${wrong}</b><span>לא נכון</span></div><div><b class="count" data-v="${skipped}">${skipped}</b><span>דילוגים</span></div></div>
           <div class="bar"><i style="width:${Math.round(100 * right / done)}%"></i></div>
           <div class="row" style="margin-top:14px"><a class="btn" href="${backHash}">${icon('refresh')} סבב נוסף</a>${review.length ? `<a class="btn ghost" href="#/mistakes">לחיזוק (${weakCount()})</a>` : ''}<a class="btn ghost" href="#/">בית</a></div></div>
           ${review.length ? `<h3>לחזרה מהסבב הזה</h3>` : ''}`;
         review.forEach(q => wrap.appendChild(renderQuestion(q, { showAnswer: true })));
+        fillCounts(wrap);
         return;
       }
       saveResume();
@@ -223,7 +250,7 @@
     const s = stats(); const seen = DB.questions.filter(q => s[q.id]).length; const weak = weakCount();
     const mastered = DB.questions.filter(q => isMastered(s[q.id])).length; const total = DB.counts.total;
     const exams = store.get('exams', []); const last = exams[exams.length - 1]; const resume = store.get('resume', null);
-    const pct = Math.round(100 * mastered / total); const C = 2 * Math.PI * 46;
+    const pct = Math.round(100 * mastered / total);
     const byTopic = {}; DB.questions.forEach(q => { const t = byTopic[q.topic] = byTopic[q.topic] || { n: 0, weak: 0 }; t.n++; if (isWeak(s[q.id])) t.weak++; });
     const weakest = Object.entries(byTopic).filter(([, v]) => v.weak).sort((a, b) => b[1].weak - a[1].weak).slice(0, 5);
     const modes = [
@@ -238,11 +265,11 @@
       <section class="hero"><h1>${resume ? 'להמשיך מאיפה שעצרת?' : 'בוא נתרגל שאלות'}</h1>
         <p class="lead">${resume ? `${esc(resume.title)} · שאלה ${resume.i + 1} מתוך ${resume.ids.length}` : `${total} שאלות מהמבחנים ומהחוברת, עם הסבר לכל תשובה.`}</p>
         <div class="row">${resume ? `<a class="btn lg" href="#/resume">${icon('play')} המשך תרגול</a><a class="btn ghost" href="#/practice">תרגול חדש</a>` : `<a class="btn lg" href="#/practice/go">${icon('play')} תרגול מהיר</a><a class="btn ghost" href="#/practice">בחירת נושא</a>`}</div>
-        <div class="metrics"><div><b>${seen}</b><span>נראו</span></div><div><b>${mastered}</b><span>נשלטות</span></div><div><b class="${weak ? 'bad-text' : ''}">${weak}</b><span>לחיזוק</span></div><div><b>${last ? last.score + '%' : '–'}</b><span>מבחן אחרון</span></div></div>
+        <div class="metrics"><div><b class="count" data-v="${seen}">${seen}</b><span>נראו</span></div><div><b class="count" data-v="${mastered}">${mastered}</b><span>נשלטות</span></div><div><b class="count ${weak ? 'bad-text' : ''}" data-v="${weak}">${weak}</b><span>לחיזוק</span></div><div><b>${last ? last.score + '%' : '–'}</b><span>מבחן אחרון</span></div></div>
         <div class="bar"><i style="width:${pct}%"></i></div></section>
       <ul class="modes divide">${modes.map(([h, ic, t, d]) => `<li><a href="#/${h}"><span class="ic">${icon(ic)}</span><span><b>${t}</b><small>${d}</small></span><span class="arrow">${icon('chev-l')}</span></a></li>`).join('')}</ul>
     </div>
-    <aside class="panel"><div class="ring"><svg viewBox="0 0 110 110"><circle class="bgc" cx="55" cy="55" r="46"/><circle class="fgc" cx="55" cy="55" r="46" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct / 100)}"/></svg><div class="val">${pct}%<small>נשלטות</small></div></div>
+    <aside class="panel"><div class="ring2" style="--pt:${pct}%"><div class="val">${pct}%<small>נשלטות</small></div></div>
       <p class="muted small center">שאלה נחשבת "נשלטת" אחרי 3 תשובות נכונות ברצף.</p>
       ${weakest.length ? `<h3>נושאים לחיזוק</h3><ul class="weaklist">${weakest.map(([t, v]) => `<li><a href="#/practice/${encodeURIComponent(t)}">${esc(t)}</a><span class="n">${v.weak}</span></li>`).join('')}</ul>` : ''}
       ${SYNC && !SYNC.enabled() ? `<div class="section small"><b>גיליון Google</b><br><span class="muted">חבר גיליון כדי לשמור את ההיסטוריה ולעבור בין מכשירים.</span><br><a class="btn sm soft" style="margin-top:8px" href="#/sync">${icon('cloud')} הגדרת סנכרון</a></div>` : ''}
@@ -317,8 +344,9 @@
       finished = true; clearInterval(tm);
       let right = 0; qs.forEach((q, k) => { const ok = answers[k] === q.correct; record(q, answers[k] == null ? 'skipped' : ok ? 'right' : 'wrong', { mode: 'exam', pick: answers[k] }); if (ok) right++; });
       const score = Math.round(100 * right / qs.length); const exams = store.get('exams', []); exams.push({ at: Date.now(), n: qs.length, right, score, pass: cfg.pass }); store.set('exams', exams);
-      wrap.innerHTML = `<div class="panel raised"><h2>${score >= cfg.pass ? 'עברת' : 'לא עברת'} · ${score}%</h2><div class="result"><div><b class="ok-text">${right}</b><span>נכון</span></div><div><b class="bad-text">${qs.length - right}</b><span>לא נכון</span></div><div><b>${cfg.pass}%</b><span>נדרש</span></div></div><div class="row"><a class="btn" href="#/exam">מבחן חדש</a><a class="btn ghost" href="#/mistakes">לחיזוק</a></div></div><h3>סקירת השאלות</h3>`;
+      wrap.innerHTML = `<div class="panel raised"><h2>${score >= cfg.pass ? 'עברת' : 'לא עברת'} · ${score}%</h2><div class="result"><div><b class="count ok-text" data-v="${right}">${right}</b><span>נכון</span></div><div><b class="count bad-text" data-v="${qs.length - right}">${qs.length - right}</b><span>לא נכון</span></div><div><b>${cfg.pass}%</b><span>נדרש</span></div></div><div class="row"><a class="btn" href="#/exam">מבחן חדש</a><a class="btn ghost" href="#/mistakes">לחיזוק</a></div></div><h3>סקירת השאלות</h3>`;
       qs.forEach((q, k) => { const c = renderQuestion(q, { index: k, total: qs.length, showAnswer: true, picked: answers[k] }); wrap.appendChild(c); });
+      fillCounts(wrap);
       window.scrollTo(0, 0);
     };
     const tm = setInterval(() => { const left = end - Date.now(); if (left <= 0) { finish(); return; } const t = $('.timer', wrap); if (t) t.textContent = `${String(Math.floor(left / 60000)).padStart(2, '0')}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}`; }, 500);
@@ -583,10 +611,13 @@
     let out;
     if (v === 'mistakes' && rest[1] === 'go') out = views.mistakes.go(rest[0]);
     else { const fn = views[v] || views.home; out = fn(...rest); }
-    app.innerHTML = ''; if (typeof out === 'string') app.innerHTML = out; else app.appendChild(out);
-    fillPics(app);
-    const rb = $('#resetAll'); if (rb) rb.onclick = () => { if (confirm('לאפס את כל ההתקדמות במכשיר הזה?')) { localStorage.clear(); location.reload(); } };
-    window.scrollTo(0, 0);
+    const apply = () => {
+      app.innerHTML = ''; if (typeof out === 'string') app.innerHTML = out; else app.appendChild(out);
+      fillPics(app); fillCounts(app);
+      const rb = $('#resetAll'); if (rb) rb.onclick = () => { if (confirm('לאפס את כל ההתקדמות במכשיר הזה?')) { localStorage.clear(); location.reload(); } };
+      window.scrollTo(0, 0);
+    };
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(apply); else apply();
   }
   app.addEventListener('click', e => { if (e.target.classList && e.target.classList.contains('pageimg')) e.target.classList.toggle('zoom'); });
   window.addEventListener('hashchange', route);
